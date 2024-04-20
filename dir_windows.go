@@ -2,7 +2,7 @@
 // of this source code is governed by a BSD-style license that can be found in
 // the LICENSE file.
 
-// +build windows
+//go:build windows
 
 package vfs
 
@@ -23,10 +23,30 @@ func (windowsDir) Sync() error {
 	return nil
 }
 
+type wrapOsFile struct {
+	*os.File
+}
+
+func (w wrapOsFile) Preallocate(offset, length int64) error {
+	return nil
+}
+
+func (w wrapOsFile) SyncTo(length int64) (fullSync bool, err error) {
+	return true, w.File.Sync()
+}
+
+func (w wrapOsFile) SyncData() error {
+	return w.File.Sync()
+}
+
+func (w wrapOsFile) Prefetch(offset int64, length int64) error {
+	return nil
+}
+
 func (defaultFS) OpenDir(name string) (File, error) {
 	f, err := os.OpenFile(name, syscall.O_CLOEXEC, 0)
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
-	return windowsDir{f}, nil
+	return windowsDir{File: wrapOsFile{File: f}}, nil
 }
